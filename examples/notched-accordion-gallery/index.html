@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pt-br" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galeria Accordion Recortada</title>
+
+<!-- Bootstrap 5 (CDN) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.bunny.net/css?family=jura:300,500" rel="stylesheet">
+
+<style>
+  :root{
+    --brand-green: #2e9e4f;
+  }
+
+  html, body{
+    height: 100%;
+    font-family: 'Jura', system-ui, sans-serif;
+  }
+
+  body{
+    background: radial-gradient(circle at 50% 30%, #0f1f14 0%, #0a140d 60%, #060a07 100%);
+  }
+
+  .stage{
+    min-height: 100vh;
+  }
+
+  .hint{
+    color: var(--brand-green);
+    letter-spacing: .02em;
+  }
+
+  /* --- Accordion gallery ------------------------------------------------ */
+  .wrapper{
+    --border-size: 4px;
+    --border-color: var(--brand-green);
+
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    width: min(100%, 800px);
+    margin-inline: auto;
+    aspect-ratio: 2 / 1;
+    counter-reset: --card-counter;
+  }
+
+  .wrapper > *{
+    position: relative;
+    overflow: hidden;
+    border-radius: 0 0 0 30% / 0 0 0 50%;
+    transition: border-radius 300ms ease-in-out;
+    border: var(--border-size) solid var(--border-color);
+    background-image: var(--bg-img);
+    background-size: 450px 100%;
+    grid-row: 1;
+  }
+
+  .wrapper > *:first-child{
+    border-radius: 0 0 0 0 / 0 0 0 200px;
+  }
+
+  /* remove notch from the active card and the one right after it */
+  .wrapper > *:hover,
+  .wrapper > *:hover + div{
+    border-radius: 0 0 0 0;
+  }
+
+  .wrapper > *:nth-child(1){ grid-column: 1 / span 3; }
+  .wrapper > *:nth-child(2){ grid-column: 3 / span 3; }
+  .wrapper > *:nth-child(3){ grid-column: 5 / span 3; }
+  .wrapper > *:nth-child(4){ grid-column: 7 / span 3; }
+
+  .wrapper > *::after{
+    content: counter(--card-counter) ".";
+    counter-increment: --card-counter;
+    position: absolute;
+    top: .5rem;
+    left: 1rem;
+    font-size: 2rem;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0,0,0,.6);
+    transition: transform 150ms ease-in-out;
+    transform: scale(0);
+  }
+
+  .wrapper > *:hover::after{
+    transform: scale(1);
+  }
+</style>
+</head>
+<body>
+
+<div class="stage d-flex flex-column align-items-center justify-content-center gap-4 py-5">
+
+  <p class="hint small text-uppercase mb-0">passe o mouse sobre uma imagem</p>
+
+  <div class="wrapper" id="gallery">
+    <div data-index="0" style="--bg-img:url(https://images.unsplash.com/photo-1518005020951-eccb494ad742?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wzMjM4NDZ8MHwxfHJhbmRvbXx8fHx8fHx8fDE3Njg0MjEyODh8&ixlib=rb-4.1.0&q=80&w=400)"></div>
+    <div data-index="1" style="--bg-img:url(https://images.unsplash.com/photo-1479839672679-a46483c0e7c8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wzMjM4NDZ8MHwxfHJhbmRvbXx8fHx8fHx8fDE3Njg0MjA1MDB8&ixlib=rb-4.1.0&q=80&w=400)"></div>
+    <div data-index="2" style="--bg-img:url(https://images.unsplash.com/photo-1493397212122-2b85dda8106b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wzMjM4NDZ8MHwxfHJhbmRvbXx8fHx8fHx8fDE3Njg0MjA4MTB8&ixlib=rb-4.1.0&q=80&w=400)"></div>
+    <div data-index="3" style="--bg-img:url(https://images.unsplash.com/photo-1524126675694-1efa3488b7c0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wzMjM4NDZ8MHwxfHJhbmRvbXx8fHx8fHx8fDE3Njg0MjA1MjR8&ixlib=rb-4.1.0&q=80&w=400)"></div>
+  </div>
+
+</div>
+
+<!-- anime.js (CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+
+<script>
+(function () {
+  var wrapper = document.getElementById('gallery');
+  var cards = wrapper.querySelectorAll(':scope > div');
+
+  var TOTAL_COLS = 9;
+  // The column (0-based) each card widens when active, matching the
+  // original CSS-grid layout where each card spans 3 overlapping columns.
+  var EXPAND_COLUMN = [0, 3, 5, 7];
+  var EXPANDED_FR = 6;
+  var RESTING_FR = 1;
+
+  // Single tween target: one numeric prop per column so anime.js can
+  // interpolate each independently, then we assemble the grid string.
+  var columns = {};
+  for (var i = 0; i < TOTAL_COLS; i++) columns['c' + i] = RESTING_FR;
+
+  var currentTween = null;
+
+  function applyColumns() {
+    var tracks = [];
+    for (var i = 0; i < TOTAL_COLS; i++) tracks.push(columns['c' + i].toFixed(3) + 'fr');
+    wrapper.style.gridTemplateColumns = tracks.join(' ');
+  }
+
+  function animateTo(activeIndex) {
+    if (currentTween) currentTween.pause();
+
+    var target = { targets: columns, duration: 300, easing: 'easeInOutSine', update: applyColumns };
+    for (var i = 0; i < TOTAL_COLS; i++) {
+      var isActiveTrack = activeIndex !== null && EXPAND_COLUMN[activeIndex] === i;
+      target['c' + i] = isActiveTrack ? EXPANDED_FR : RESTING_FR;
+    }
+    currentTween = anime(target);
+  }
+
+  cards.forEach(function (card, i) {
+    card.addEventListener('mouseenter', function () { animateTo(i); });
+    card.addEventListener('mouseleave', function () { animateTo(null); });
+  });
+
+  applyColumns();
+})();
+</script>
+
+</body>
+</html>

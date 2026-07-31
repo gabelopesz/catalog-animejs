@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="pt-br" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snake Highlight (Formulário)</title>
+
+<!-- Bootstrap 5 (CDN) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+  :root{
+    --brand-green: #2e9e4f;
+  }
+
+  body{
+    background: radial-gradient(circle at 50% 25%, #0f1f14 0%, #0a140d 60%, #060a07 100%);
+    min-height: 100vh;
+  }
+
+  .accent{ color: var(--brand-green); }
+
+  .snake-card{
+    width: min(100%, 360px);
+  }
+
+  .snake-wrap{
+    position: relative;
+  }
+
+  .snake-svg{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  #snake-path{
+    fill: none;
+    stroke: var(--brand-green);
+    stroke-width: 2;
+    filter: drop-shadow(0 0 6px rgba(46, 158, 79, .55));
+  }
+
+  .snake-form{
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  .snake-field{
+    background: rgba(255, 255, 255, .03) !important;
+    border: 1px solid rgba(255, 255, 255, .12) !important;
+    color: #f5f5f5 !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+  }
+
+  .snake-field::placeholder{
+    color: rgba(245, 245, 245, .35);
+  }
+
+  .snake-field:focus{
+    background: rgba(255, 255, 255, .05) !important;
+  }
+
+  .snake-submit{
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, .12);
+    color: var(--brand-green);
+    font-weight: 600;
+  }
+
+  .snake-submit:hover,
+  .snake-submit:focus{
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage d-flex align-items-center justify-content-center min-vh-100 py-5">
+  <div class="snake-card">
+
+    <h2 class="h5 text-center mb-1">Entrar</h2>
+    <p class="text-center text-secondary small mb-4">clique ou navegue com Tab pelos campos</p>
+
+    <div class="snake-wrap" id="snake-wrap">
+      <svg class="snake-svg" id="snake-svg">
+        <path id="snake-path"></path>
+      </svg>
+
+      <form class="snake-form" novalidate>
+        <div>
+          <label for="email" class="form-label small text-secondary">Email</label>
+          <input type="email" id="email" class="form-control snake-field" placeholder="voce@exemplo.com" autocomplete="off">
+        </div>
+        <div>
+          <label for="password" class="form-label small text-secondary">Senha</label>
+          <input type="password" id="password" class="form-control snake-field" placeholder="••••••••" autocomplete="off">
+        </div>
+        <button id="submit" type="submit" class="btn snake-field snake-submit mt-2">Entrar</button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<!-- anime.js (CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+
+<script>
+(function () {
+  var wrap = document.getElementById('snake-wrap');
+  var svg = document.getElementById('snake-svg');
+  var path = document.getElementById('snake-path');
+  var fields = Array.prototype.slice.call(document.querySelectorAll('.snake-field'));
+
+  var CORNER_RADIUS = 10;
+
+  // segments[i] = { offsetBefore, length } for each field's rounded-rect
+  // subpath, measured in the path's own combined length units.
+  var segments = [];
+  var totalLength = 0;
+  var activeIndex = null;
+  var current = null;
+
+  function roundedRectD(x, y, w, h, r) {
+    return [
+      'M', x + r, y,
+      'H', x + w - r,
+      'A', r, r, 0, 0, 1, x + w, y + r,
+      'V', y + h - r,
+      'A', r, r, 0, 0, 1, x + w - r, y + h,
+      'H', x + r,
+      'A', r, r, 0, 0, 1, x, y + h - r,
+      'V', y + r,
+      'A', r, r, 0, 0, 1, x + r, y,
+      'Z'
+    ].join(' ');
+  }
+
+  // Measures a single subpath's length in isolation so each field's
+  // segment/offset can be computed without guessing pixel geometry by hand.
+  function measureLength(d) {
+    var probe = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    probe.setAttribute('d', d);
+    svg.appendChild(probe);
+    var length = probe.getTotalLength();
+    svg.removeChild(probe);
+    return length;
+  }
+
+  // Rebuilds the SVG path from the fields' current on-screen geometry, so
+  // the highlight stays pixel-perfect across reflows/resizes/content changes.
+  function buildPath() {
+    var wrapRect = wrap.getBoundingClientRect();
+    svg.setAttribute('viewBox', '0 0 ' + wrapRect.width + ' ' + wrapRect.height);
+
+    var subpaths = [];
+    segments = [];
+    totalLength = 0;
+
+    fields.forEach(function (field) {
+      var r = field.getBoundingClientRect();
+      var d = roundedRectD(r.left - wrapRect.left, r.top - wrapRect.top, r.width, r.height, CORNER_RADIUS);
+      var length = measureLength(d);
+      segments.push({ offsetBefore: totalLength, length: length });
+      totalLength += length;
+      subpaths.push(d);
+    });
+
+    path.setAttribute('d', subpaths.join(' '));
+    path.style.strokeDasharray = '0 ' + totalLength;
+    path.style.strokeDashoffset = 0;
+  }
+
+  function highlight(index) {
+    var seg = segments[index];
+    if (!seg) return;
+    if (current) current.pause();
+
+    current = anime({
+      targets: path,
+      strokeDashoffset: {
+        value: -seg.offsetBefore,
+        duration: 700,
+        easing: 'easeOutQuart'
+      },
+      strokeDasharray: {
+        value: seg.length + ' ' + (totalLength - seg.length),
+        duration: 700,
+        easing: 'easeOutQuart'
+      }
+    });
+  }
+
+  function hide() {
+    if (current) current.pause();
+    current = anime({
+      targets: path,
+      strokeDasharray: {
+        value: '0 ' + totalLength,
+        duration: 400,
+        easing: 'easeInQuart'
+      }
+    });
+  }
+
+  buildPath();
+
+  fields.forEach(function (field, i) {
+    field.addEventListener('focus', function () {
+      activeIndex = i;
+      highlight(i);
+    });
+  });
+
+  wrap.addEventListener('focusout', function (e) {
+    if (fields.indexOf(e.relatedTarget) === -1) {
+      activeIndex = null;
+      hide();
+    }
+  });
+
+  var resizeTimer;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      buildPath();
+      if (activeIndex !== null) {
+        var seg = segments[activeIndex];
+        path.style.strokeDasharray = seg.length + ' ' + (totalLength - seg.length);
+        path.style.strokeDashoffset = -seg.offsetBefore;
+      }
+    }, 150);
+  });
+})();
+</script>
+
+</body>
+</html>
