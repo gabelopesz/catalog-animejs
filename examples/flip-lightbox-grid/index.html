@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="pt-br" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lightbox FLIP</title>
+
+<!-- Bootstrap 5 (CDN) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.bunny.net/css?family=jura:300,500" rel="stylesheet">
+
+<style>
+  :root{
+    --brand-green: #2e9e4f;
+  }
+
+  html, body{
+    height: 100%;
+    font-family: 'Jura', system-ui, sans-serif;
+  }
+
+  body{
+    background: radial-gradient(circle at 50% 30%, #0f1f14 0%, #0a140d 60%, #060a07 100%);
+  }
+
+  .stage{
+    min-height: 100vh;
+  }
+
+  .hint{
+    color: var(--brand-green);
+    letter-spacing: .02em;
+  }
+
+  /* --- Grade de miniaturas ------------------------------------------------ */
+  .grid{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .75rem;
+    width: min(100%, 820px);
+  }
+
+  @media (max-width: 575.98px){
+    .grid{ grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .thumb{
+    /* mesma proporção do visualizador: mantém a escala do FLIP uniforme */
+    aspect-ratio: 3 / 2;
+    padding: 0;
+    border: 2px solid rgba(46,158,79,.35);
+    background-size: cover;
+    background-position: center;
+    cursor: pointer;
+    transition: border-color .2s ease, transform .2s ease;
+    will-change: transform, opacity;
+  }
+
+  .thumb:hover,
+  .thumb:focus-visible{
+    border-color: var(--brand-green);
+    outline: none;
+  }
+
+  /* --- Visualizador ------------------------------------------------------- */
+  .viewer{
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .viewer.is-open{
+    display: flex;
+  }
+
+  .viewer-backdrop{
+    position: absolute;
+    inset: 0;
+    background: rgba(6,10,7,.88);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+  }
+
+  .viewer-frame{
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .75rem;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  .viewer-img{
+    width: min(84vw, 840px);
+    aspect-ratio: 3 / 2;
+    max-height: 74vh;
+    background-size: cover;
+    background-position: center;
+    border: 4px solid var(--brand-green);
+    will-change: transform;
+  }
+
+  .viewer-cap{
+    color: #fff;
+    letter-spacing: .02em;
+    opacity: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage d-flex flex-column align-items-center justify-content-center gap-4 py-5">
+
+  <p class="hint small text-uppercase mb-0">clique em uma foto — ela cresce do próprio lugar</p>
+
+  <div class="grid" id="grid"></div>
+
+</div>
+
+<div class="viewer" id="viewer" aria-hidden="true">
+  <div class="viewer-backdrop" id="backdrop"></div>
+  <figure class="viewer-frame">
+    <div class="viewer-img" id="viewerImg"></div>
+    <figcaption class="viewer-cap" id="viewerCap"></figcaption>
+  </figure>
+</div>
+
+<!-- anime.js (CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+
+<script>
+(function () {
+  var IMAGES = [
+    { src: 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1400&q=80', title: 'Fachada branca' },
+    { src: 'https://images.unsplash.com/photo-1479839672679-a46483c0e7c8?auto=format&fit=crop&w=1400&q=80', title: 'Galeria de arcos' },
+    { src: 'https://images.unsplash.com/photo-1493397212122-2b85dda8106b?auto=format&fit=crop&w=1400&q=80', title: 'Concreto e curvas' },
+    { src: 'https://images.unsplash.com/photo-1524126675694-1efa3488b7c0?auto=format&fit=crop&w=1400&q=80', title: 'Vale ao entardecer' },
+    { src: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1400&q=80', title: 'Floresta ao amanhecer' },
+    { src: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1400&q=80', title: 'Montanha na neblina' }
+  ];
+
+  var grid = document.getElementById('grid');
+  var viewer = document.getElementById('viewer');
+  var backdrop = document.getElementById('backdrop');
+  var viewerImg = document.getElementById('viewerImg');
+  var viewerCap = document.getElementById('viewerCap');
+
+  var thumbs = [];
+  var activeThumb = null;
+
+  IMAGES.forEach(function (image, i) {
+    var thumb = document.createElement('button');
+    thumb.type = 'button';
+    thumb.className = 'thumb';
+    thumb.style.backgroundImage = 'url(' + image.src + ')';
+    thumb.setAttribute('aria-label', 'Ampliar: ' + image.title);
+    thumb.addEventListener('click', function () { open(i); });
+    grid.appendChild(thumb);
+    thumbs.push(thumb);
+  });
+
+  // FLIP: mede a posição de origem (First) e a de destino (Last), aplica a
+  // diferença como transform e deixa o anime.js interpolar até a identidade.
+  function measureDelta(thumb) {
+    anime.remove(viewerImg);
+    anime.set(viewerImg, { translateX: 0, translateY: 0, scaleX: 1, scaleY: 1 });
+
+    var first = thumb.getBoundingClientRect();
+    var last = viewerImg.getBoundingClientRect();
+
+    return {
+      x: (first.left + first.width / 2) - (last.left + last.width / 2),
+      y: (first.top + first.height / 2) - (last.top + last.height / 2),
+      sx: first.width / last.width,
+      sy: first.height / last.height
+    };
+  }
+
+  function open(i) {
+    if (activeThumb) return;
+
+    var thumb = thumbs[i];
+    activeThumb = thumb;
+
+    viewerImg.style.backgroundImage = thumb.style.backgroundImage;
+    viewerCap.textContent = IMAGES[i].title;
+    viewer.classList.add('is-open');
+    viewer.setAttribute('aria-hidden', 'false');
+
+    var d = measureDelta(thumb);
+    thumb.style.visibility = 'hidden';
+
+    anime.remove(backdrop);
+    anime({ targets: backdrop, opacity: [0, 1], duration: 280, easing: 'linear' });
+
+    anime({
+      targets: viewerImg,
+      translateX: [d.x, 0],
+      translateY: [d.y, 0],
+      scaleX: [d.sx, 1],
+      scaleY: [d.sy, 1],
+      duration: 560,
+      easing: 'easeOutQuint'
+    });
+
+    anime.remove(viewerCap);
+    anime({ targets: viewerCap, opacity: [0, 1], translateY: [12, 0], duration: 400, delay: 220, easing: 'easeOutQuad' });
+  }
+
+  function close() {
+    if (!activeThumb) return;
+
+    var thumb = activeThumb;
+    activeThumb = null;
+
+    var d = measureDelta(thumb);
+
+    anime.remove(viewerCap);
+    anime({ targets: viewerCap, opacity: 0, duration: 180, easing: 'linear' });
+
+    anime.remove(backdrop);
+    anime({ targets: backdrop, opacity: 0, duration: 420, delay: 80, easing: 'linear' });
+
+    anime({
+      targets: viewerImg,
+      translateX: d.x,
+      translateY: d.y,
+      scaleX: d.sx,
+      scaleY: d.sy,
+      duration: 460,
+      easing: 'easeInQuint',
+      complete: function () {
+        viewer.classList.remove('is-open');
+        viewer.setAttribute('aria-hidden', 'true');
+        thumb.style.visibility = '';
+        thumb.focus();
+      }
+    });
+  }
+
+  backdrop.addEventListener('click', close);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') close();
+  });
+
+  // entrada da grade
+  anime({
+    targets: thumbs,
+    opacity: [0, 1],
+    translateY: [24, 0],
+    scale: [.92, 1],
+    duration: 700,
+    easing: 'easeOutQuint',
+    delay: anime.stagger(70, { grid: [3, 2], from: 'first' })
+  });
+})();
+</script>
+
+</body>
+</html>

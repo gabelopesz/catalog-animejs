@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-br" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mosaico de Ladrilhos</title>
+
+<!-- Bootstrap 5 (CDN) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.bunny.net/css?family=jura:300,500" rel="stylesheet">
+
+<style>
+  :root{
+    --brand-green: #2e9e4f;
+  }
+
+  html, body{
+    height: 100%;
+    font-family: 'Jura', system-ui, sans-serif;
+  }
+
+  body{
+    background: radial-gradient(circle at 50% 30%, #0f1f14 0%, #0a140d 60%, #060a07 100%);
+  }
+
+  .stage{
+    min-height: 100vh;
+  }
+
+  .hint{
+    color: var(--brand-green);
+    letter-spacing: .02em;
+  }
+
+  /* --- Mosaic ------------------------------------------------------------ */
+  .mosaic{
+    --cols: 8;
+    --rows: 5;
+
+    display: grid;
+    grid-template-columns: repeat(var(--cols), 1fr);
+    grid-template-rows: repeat(var(--rows), 1fr);
+    width: min(100%, 800px);
+    aspect-ratio: 16 / 10;
+    border: 4px solid var(--brand-green);
+    background: #060a07;
+    overflow: hidden;
+    perspective: 900px;
+  }
+
+  /* Each tile shows one "window" of the same image: the background is blown
+     up to the full mosaic size and offset to the tile's position. */
+  .mosaic > .tile{
+    background-image: var(--img);
+    background-size: calc(100% * var(--cols)) calc(100% * var(--rows));
+    background-position: var(--bx) var(--by);
+    backface-visibility: hidden;
+    will-change: transform, opacity;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage d-flex flex-column align-items-center justify-content-center gap-4 py-5">
+
+  <p class="hint small text-uppercase mb-0">a imagem se remonta ladrilho a ladrilho</p>
+
+  <div class="mosaic" id="mosaic"></div>
+
+  <div class="d-flex flex-wrap align-items-center justify-content-center gap-2">
+    <button class="btn btn-outline-success btn-sm" id="replay" type="button">Repetir</button>
+    <button class="btn btn-outline-success btn-sm" id="next" type="button">Próxima imagem</button>
+    <select class="form-select form-select-sm w-auto" id="origin" aria-label="Origem do stagger">
+      <option value="center">a partir do centro</option>
+      <option value="first">a partir do canto superior esquerdo</option>
+      <option value="last">a partir do canto inferior direito</option>
+    </select>
+  </div>
+
+</div>
+
+<!-- anime.js (CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+
+<script>
+(function () {
+  var COLS = 8;
+  var ROWS = 5;
+
+  var IMAGES = [
+    'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1493397212122-2b85dda8106b?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80'
+  ];
+
+  var mosaic = document.getElementById('mosaic');
+  var originSelect = document.getElementById('origin');
+  var tiles = [];
+  var imageIndex = 0;
+  var tween = null;
+
+  function build() {
+    mosaic.style.setProperty('--cols', COLS);
+    mosaic.style.setProperty('--rows', ROWS);
+
+    var frag = document.createDocumentFragment();
+    for (var y = 0; y < ROWS; y++) {
+      for (var x = 0; x < COLS; x++) {
+        var tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.style.setProperty('--bx', (COLS > 1 ? (x / (COLS - 1)) * 100 : 0) + '%');
+        tile.style.setProperty('--by', (ROWS > 1 ? (y / (ROWS - 1)) * 100 : 0) + '%');
+        frag.appendChild(tile);
+        tiles.push(tile);
+      }
+    }
+    mosaic.appendChild(frag);
+  }
+
+  function setImage(url) {
+    mosaic.style.setProperty('--img', 'url(' + url + ')');
+  }
+
+  function reveal() {
+    if (tween) tween.pause();
+    anime.remove(tiles);
+
+    tween = anime({
+      targets: tiles,
+      opacity: [0, 1],
+      scale: [.25, 1],
+      rotateY: [-90, 0],
+      translateZ: [-140, 0],
+      duration: 900,
+      easing: 'easeOutExpo',
+      // grid + from = onda que se propaga pela grade, e não linha a linha
+      delay: anime.stagger(28, { grid: [COLS, ROWS], from: originSelect.value })
+    });
+  }
+
+  document.getElementById('replay').addEventListener('click', reveal);
+
+  document.getElementById('next').addEventListener('click', function () {
+    imageIndex = (imageIndex + 1) % IMAGES.length;
+    setImage(IMAGES[imageIndex]);
+    reveal();
+  });
+
+  originSelect.addEventListener('change', reveal);
+
+  build();
+  setImage(IMAGES[imageIndex]);
+  reveal();
+})();
+</script>
+
+</body>
+</html>

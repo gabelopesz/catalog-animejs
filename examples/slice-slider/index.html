@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="pt-br" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slider de Fatias</title>
+
+<!-- Bootstrap 5 (CDN) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.bunny.net/css?family=jura:300,500" rel="stylesheet">
+
+<style>
+  :root{
+    --brand-green: #2e9e4f;
+  }
+
+  html, body{
+    height: 100%;
+    font-family: 'Jura', system-ui, sans-serif;
+  }
+
+  body{
+    background: radial-gradient(circle at 50% 30%, #0f1f14 0%, #0a140d 60%, #060a07 100%);
+  }
+
+  .stage{
+    min-height: 100vh;
+  }
+
+  .hint{
+    color: var(--brand-green);
+    letter-spacing: .02em;
+  }
+
+  /* --- Slider ------------------------------------------------------------ */
+  .slider{
+    --slices: 10;
+
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--slices), 1fr);
+    width: min(100%, 820px);
+    aspect-ratio: 16 / 9;
+    border: 4px solid var(--brand-green);
+    background: #060a07;
+    overflow: hidden;
+  }
+
+  .slice{
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Cada painel exibe a faixa correspondente da imagem inteira: o fundo é
+     esticado até a largura do slider e deslocado para a coluna da fatia. */
+  .pane{
+    position: absolute;
+    inset: 0;
+    background-size: calc(100% * var(--slices)) 100%;
+    background-position: var(--bx) center;
+    will-change: transform;
+  }
+
+  .slider-caption{
+    position: absolute;
+    left: 1.25rem;
+    bottom: 1.25rem;
+    margin: 0;
+    padding: .35rem .75rem;
+    color: #fff;
+    font-size: 1.25rem;
+    letter-spacing: .02em;
+    background: rgba(6,10,7,.7);
+    border-left: 3px solid var(--brand-green);
+    pointer-events: none;
+  }
+
+  .slider-dot{
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border: 1px solid var(--brand-green);
+    border-radius: 50%;
+    background: transparent;
+    transition: background-color .2s ease, transform .2s ease;
+  }
+
+  .slider-dot.is-active{
+    background: var(--brand-green);
+    transform: scale(1.3);
+  }
+</style>
+</head>
+<body>
+
+<div class="stage d-flex flex-column align-items-center justify-content-center gap-4 py-5">
+
+  <p class="hint small text-uppercase mb-0">a troca acontece em fatias verticais alternadas</p>
+
+  <div class="slider" id="slider">
+    <p class="slider-caption" id="caption"></p>
+  </div>
+
+  <div class="d-flex align-items-center gap-3">
+    <button class="btn btn-outline-success btn-sm" id="prev" type="button">← Anterior</button>
+    <div class="d-flex align-items-center gap-2" id="dots"></div>
+    <button class="btn btn-outline-success btn-sm" id="next" type="button">Próxima →</button>
+  </div>
+
+</div>
+
+<!-- anime.js (CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+
+<script>
+(function () {
+  var SLICES = 10;
+  var DURATION = 900;
+
+  var SLIDES = [
+    { src: 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1600&q=80', title: 'Fachada branca' },
+    { src: 'https://images.unsplash.com/photo-1493397212122-2b85dda8106b?auto=format&fit=crop&w=1600&q=80', title: 'Concreto e curvas' },
+    { src: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1600&q=80', title: 'Floresta ao amanhecer' },
+    { src: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1600&q=80', title: 'Montanha na neblina' }
+  ];
+
+  var slider = document.getElementById('slider');
+  var caption = document.getElementById('caption');
+  var dotsBox = document.getElementById('dots');
+
+  // Dois conjuntos de painéis: um visível (front) e um que entra (back).
+  var panes = [[], []];
+  var dots = [];
+  var front = 0;
+  var index = 0;
+  var busy = false;
+
+  function build() {
+    slider.style.setProperty('--slices', SLICES);
+
+    for (var i = 0; i < SLICES; i++) {
+      var slice = document.createElement('div');
+      slice.className = 'slice';
+
+      for (var layer = 0; layer < 2; layer++) {
+        var pane = document.createElement('div');
+        pane.className = 'pane';
+        pane.style.setProperty('--bx', (SLICES > 1 ? (i / (SLICES - 1)) * 100 : 0) + '%');
+        slice.appendChild(pane);
+        panes[layer].push(pane);
+      }
+
+      slider.insertBefore(slice, caption);
+    }
+
+    SLIDES.forEach(function (slide, i) {
+      var dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'slider-dot';
+      dot.setAttribute('aria-label', 'Ir para ' + slide.title);
+      dot.addEventListener('click', function () { show(i, i > index ? 1 : -1); });
+      dotsBox.appendChild(dot);
+      dots.push(dot);
+    });
+  }
+
+  function paint(layer, slideIndex) {
+    panes[layer].forEach(function (pane) {
+      pane.style.backgroundImage = 'url(' + SLIDES[slideIndex].src + ')';
+    });
+  }
+
+  // Fatias pares e ímpares andam em sentidos opostos.
+  function sign(i, direction) {
+    return (i % 2 === 0 ? 1 : -1) * direction;
+  }
+
+  function show(nextIndex, direction) {
+    if (busy || nextIndex === index) return;
+    busy = true;
+
+    var back = front === 0 ? 1 : 0;
+    paint(back, nextIndex);
+
+    anime.set(panes[back], {
+      translateY: function (el, i) { return sign(i, direction) * 100 + '%'; }
+    });
+
+    var stagger = anime.stagger(55, { from: direction > 0 ? 'first' : 'last' });
+
+    anime({
+      targets: panes[front],
+      translateY: function (el, i) { return -sign(i, direction) * 100 + '%'; },
+      duration: DURATION,
+      easing: 'easeInOutQuart',
+      delay: stagger
+    });
+
+    anime({
+      targets: panes[back],
+      translateY: '0%',
+      duration: DURATION,
+      easing: 'easeInOutQuart',
+      delay: stagger,
+      complete: function () { busy = false; }
+    });
+
+    front = back;
+    index = nextIndex;
+    setCaption();
+  }
+
+  function setCaption() {
+    caption.textContent = SLIDES[index].title;
+    anime.remove(caption);
+    anime({ targets: caption, opacity: [0, 1], translateX: [-16, 0], duration: 500, delay: 260, easing: 'easeOutQuad' });
+    dots.forEach(function (dot, i) { dot.classList.toggle('is-active', i === index); });
+  }
+
+  document.getElementById('next').addEventListener('click', function () {
+    show((index + 1) % SLIDES.length, 1);
+  });
+
+  document.getElementById('prev').addEventListener('click', function () {
+    show((index - 1 + SLIDES.length) % SLIDES.length, -1);
+  });
+
+  build();
+  paint(front, index);
+  anime.set(panes[front], { translateY: '0%' });
+  setCaption();
+})();
+</script>
+
+</body>
+</html>

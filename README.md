@@ -15,6 +15,14 @@ sync-animate/
       index.html                          <- galeria accordion com cantos recortados
     snake-highlight-form/
       index.html                          <- borda SVG que "rasteja" até o campo em foco
+    tile-mosaic-reveal/
+      index.html                          <- imagem remontada em ladrilhos (stagger em grade)
+    ken-burns-slideshow/
+      index.html                          <- zoom/panorâmica com crossfade e barra de progresso
+    flip-lightbox-grid/
+      index.html                          <- miniatura que cresce até o visualizador (FLIP)
+    slice-slider/
+      index.html                          <- troca de imagens em fatias verticais alternadas
   2026-07-23-.../                         <- protótipos originais (CSS puro), mantidos como referência
 ```
 
