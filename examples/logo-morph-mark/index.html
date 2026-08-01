@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-br" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Símbolo em Morphing</title>
+
+<!-- Bootstrap 5 (CDN) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+  :root{
+    --brand-green: #2e9e4f;
+  }
+
+  html, body{
+    height: 100%;
+  }
+
+  body{
+    background: radial-gradient(circle at 50% 30%, #0f1f14 0%, #0a140d 60%, #060a07 100%);
+    color: #f5f5f5;
+  }
+
+  .stage{
+    min-height: 100vh;
+  }
+
+  .hint{
+    color: var(--brand-green);
+    letter-spacing: .02em;
+  }
+
+  .mark-svg{
+    width: 220px;
+    height: 220px;
+  }
+
+  /* sem isto, rotate() em SVG gira em torno da origem da viewBox */
+  #markWrap, #mark{
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  #ring{
+    fill: none;
+    stroke: rgba(46,158,79,.45);
+    stroke-width: 1.5;
+    stroke-dasharray: 18 10;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .brand-text{
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-weight: 600;
+    font-size: clamp(1.4rem, 4vw, 2.4rem);
+    letter-spacing: .02em;
+    color: var(--brand-green);
+  }
+</style>
+</head>
+<body>
+
+<div class="stage d-flex flex-column align-items-center justify-content-center gap-4 py-5">
+
+  <p class="hint small text-uppercase mb-0">o símbolo transita entre formas sem cortes</p>
+
+  <div class="d-flex flex-column align-items-center gap-3">
+    <svg class="mark-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <circle id="ring" cx="50" cy="50" r="45"></circle>
+      <g id="markWrap">
+        <!-- Todas as formas têm a mesma estrutura (M + 4 curvas + Z),
+             condição para o anime.js interpolar o atributo `d`. -->
+        <path id="mark" fill="#2e9e4f"
+              d="M50 20 C66.6 20 80 33.4 80 50 C80 66.6 66.6 80 50 80 C33.4 80 20 66.6 20 50 C20 33.4 33.4 20 50 20 Z"/>
+      </g>
+    </svg>
+
+    <div class="brand-text">Acme</div>
+  </div>
+
+  <button class="btn btn-outline-success btn-sm" id="toggle" type="button">Pausar</button>
+
+</div>
+
+<!-- anime.js (CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+
+<script>
+(function () {
+  // Mesma contagem e ordem de comandos em todas: M, C, C, C, C, Z.
+  var SHAPES = [
+    'M50 20 C66.6 20 80 33.4 80 50 C80 66.6 66.6 80 50 80 C33.4 80 20 66.6 20 50 C20 33.4 33.4 20 50 20 Z',
+    'M50 18 C74 18 82 26 82 50 C82 74 74 82 50 82 C26 82 18 74 18 50 C18 26 26 18 50 18 Z',
+    'M50 12 C64 32 82 40 82 54 C82 70 68 84 50 84 C32 84 18 70 18 54 C18 40 36 32 50 12 Z',
+    'M50 14 C74 22 86 44 74 64 C66 78 56 84 44 82 C28 79 16 66 16 48 C16 30 30 20 50 14 Z'
+  ];
+
+  var COLORS = ['#2e9e4f', '#3fb864', '#57c97b', '#1f7a3a'];
+
+  var MORPH = 900;   // duração de cada transição
+  var HOLD = 700;    // pausa entre transições
+  var CYCLE = (MORPH + HOLD) * SHAPES.length;
+
+  var toggle = document.getElementById('toggle');
+  var playing = true;
+
+  var morphTl = anime.timeline({ loop: true, easing: 'easeInOutQuad' });
+
+  SHAPES.forEach(function (shape, i) {
+    var next = SHAPES[(i + 1) % SHAPES.length];
+    morphTl.add({
+      targets: '#mark',
+      d: next,
+      fill: COLORS[(i + 1) % COLORS.length],
+      duration: MORPH,
+      // leve balanço acompanhando a troca de forma
+      rotate: [(i % 2 ? -6 : 6), 0]
+    }, i === 0 ? 0 : '+=' + HOLD);
+  });
+
+  var ringTween = anime({
+    targets: '#ring',
+    rotate: 360,
+    duration: CYCLE,
+    easing: 'linear',
+    loop: true
+  });
+
+  toggle.addEventListener('click', function () {
+    playing = !playing;
+    toggle.textContent = playing ? 'Pausar' : 'Retomar';
+    if (playing) { morphTl.play(); ringTween.play(); }
+    else { morphTl.pause(); ringTween.pause(); }
+  });
+})();
+</script>
+
+</body>
+</html>
