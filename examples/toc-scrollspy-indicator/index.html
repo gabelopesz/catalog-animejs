@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="pt-br" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sumário com Scroll-Spy (Tópicos)</title>
+
+<!-- Bootstrap 5 (CDN) -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+  :root{
+    --brand-green: #2e9e4f;
+  }
+
+  body{
+    background: radial-gradient(circle at 50% 20%, #0f1f14 0%, #0a140d 60%, #060a07 100%);
+    min-height: 100vh;
+  }
+
+  .accent{ color: var(--brand-green); }
+
+  .toc-card{
+    width: min(100%, 780px);
+  }
+
+  .toc-layout{
+    display: flex;
+    gap: 2.5rem;
+  }
+
+  /* --- Sidebar / summary ---------------------------------------------- */
+  .toc-sidebar{
+    position: relative;
+    flex-shrink: 0;
+    width: 190px;
+    padding-top: .25rem;
+  }
+
+  .toc-track{
+    position: absolute;
+    top: .25rem;
+    bottom: .25rem;
+    left: 0;
+    width: 2px;
+    background: rgba(255, 255, 255, .08);
+    border-radius: 2px;
+  }
+
+  .toc-indicator{
+    position: absolute;
+    left: 0;
+    width: 2px;
+    top: 0;
+    height: 0;
+    background: var(--brand-green);
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(46, 158, 79, .7);
+  }
+
+  .toc-list{
+    list-style: none;
+    margin: 0;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+  }
+
+  .toc-link{
+    display: block;
+    padding: .4rem 0;
+    color: #868e96;
+    text-decoration: none;
+    font-size: .875rem;
+    transition: color .2s ease;
+  }
+
+  .toc-link:hover{
+    color: #f5f5f5;
+  }
+
+  .toc-link.is-active{
+    color: var(--brand-green);
+    font-weight: 600;
+  }
+
+  /* --- Scrollable content ---------------------------------------------- */
+  .toc-content{
+    flex: 1;
+    min-width: 0;
+    max-height: 62vh;
+    overflow-y: auto;
+    padding-right: .75rem;
+  }
+
+  .toc-content::-webkit-scrollbar{
+    width: 6px;
+  }
+
+  .toc-content::-webkit-scrollbar-thumb{
+    background: rgba(46, 158, 79, .35);
+    border-radius: 3px;
+  }
+
+  .toc-content section{
+    padding-bottom: 2.75rem;
+  }
+
+  .toc-content section:last-of-type{
+    padding-bottom: .25rem;
+  }
+
+  .toc-content h3{
+    font-size: 1.05rem;
+    margin-bottom: .6rem;
+  }
+
+  .toc-content p{
+    color: #adb5bd;
+    font-size: .875rem;
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage d-flex align-items-center justify-content-center min-vh-100 py-5">
+  <div class="toc-card">
+
+    <h2 class="h5 text-center mb-1">Sumário com <span class="accent">Scroll-Spy</span></h2>
+    <p class="text-center text-secondary small mb-4">role o conteúdo à direita ou clique num tópico</p>
+
+    <div class="toc-layout">
+
+      <aside class="toc-sidebar">
+        <div class="toc-track"></div>
+        <div class="toc-indicator" id="toc-indicator"></div>
+        <ul class="toc-list" id="toc-list">
+          <li><a href="#sec-intro" class="toc-link is-active" data-target="sec-intro">Introdução</a></li>
+          <li><a href="#sec-arquitetura" class="toc-link" data-target="sec-arquitetura">Arquitetura</a></li>
+          <li><a href="#sec-dados" class="toc-link" data-target="sec-dados">Camada de Dados</a></li>
+          <li><a href="#sec-seguranca" class="toc-link" data-target="sec-seguranca">Segurança</a></li>
+          <li><a href="#sec-conclusao" class="toc-link" data-target="sec-conclusao">Conclusão</a></li>
+        </ul>
+      </aside>
+
+      <div class="toc-content" id="toc-content">
+
+        <section id="sec-intro">
+          <h3>Introdução</h3>
+          <p>
+            Este documento descreve, em linhas gerais, como os módulos do sistema se conectam e
+            quais decisões guiaram a escolha de cada peça da stack.
+          </p>
+          <p>
+            O objetivo não é esgotar os detalhes de implementação, mas dar contexto suficiente
+            para que qualquer pessoa do time consiga navegar pelo projeto com segurança.
+          </p>
+        </section>
+
+        <section id="sec-arquitetura">
+          <h3>Arquitetura</h3>
+          <p>
+            O sistema é dividido em serviços independentes que se comunicam por filas de
+            mensagens, reduzindo o acoplamento entre as equipes responsáveis por cada parte.
+          </p>
+          <p>
+            Cada serviço expõe uma API própria e publica eventos de domínio sempre que um estado
+            relevante muda, permitindo que outros serviços reajam sem consultas diretas.
+          </p>
+        </section>
+
+        <section id="sec-dados">
+          <h3>Camada de Dados</h3>
+          <p>
+            Os dados transacionais ficam em um banco relacional, enquanto os dados de leitura
+            intensa são replicados para um armazenamento otimizado para consultas analíticas.
+          </p>
+          <p>
+            Migrações de esquema são versionadas e aplicadas automaticamente antes de cada
+            implantação, evitando divergência entre ambientes.
+          </p>
+        </section>
+
+        <section id="sec-seguranca">
+          <h3>Segurança</h3>
+          <p>
+            Toda comunicação entre serviços é autenticada com tokens de curta duração, renovados
+            automaticamente pelo próprio cliente antes de expirarem.
+          </p>
+          <p>
+            Auditorias de acesso são registradas em um log imutável, consultável pela equipe de
+            segurança sem intervenção da equipe de desenvolvimento.
+          </p>
+        </section>
+
+        <section id="sec-conclusao">
+          <h3>Conclusão</h3>
+          <p>
+            A combinação de serviços desacoplados, dados replicados por finalidade e segurança
+            por padrão permite que o sistema cresça sem acumular complexidade acidental.
+          </p>
+          <p>
+            Novas seções deste documento devem seguir a mesma estrutura: contexto, decisão e
+            consequência.
+          </p>
+        </section>
+
+        <div class="toc-spacer" id="toc-spacer" aria-hidden="true"></div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- anime.js (CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+
+<script>
+(function () {
+  var list = document.getElementById('toc-list');
+  var indicator = document.getElementById('toc-indicator');
+  var content = document.getElementById('toc-content');
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc-link'));
+  var sections = Array.prototype.slice.call(content.querySelectorAll('section'));
+
+  var activeIndex = -1;
+  var indicatorAnim = null;
+
+  function placeIndicator(link, animated) {
+    var listRect = list.getBoundingClientRect();
+    var linkRect = link.getBoundingClientRect();
+    var top = linkRect.top - listRect.top;
+    var height = linkRect.height;
+
+    if (!animated) {
+      indicator.style.top = top + 'px';
+      indicator.style.height = height + 'px';
+      return;
+    }
+
+    if (indicatorAnim) indicatorAnim.pause();
+    indicatorAnim = anime({
+      targets: indicator,
+      top: top,
+      height: height,
+      duration: 350,
+      easing: 'easeOutQuad'
+    });
+  }
+
+  function setActive(index, animated) {
+    if (index === activeIndex) return;
+    activeIndex = index;
+    links.forEach(function (link, i) {
+      link.classList.toggle('is-active', i === index);
+    });
+    placeIndicator(links[index], animated);
+  }
+
+  // Without runway past the last section, short trailing sections could
+  // never be scrolled up to the reading line at all — the scrollable area
+  // would bottom out first, so whichever section came before them stayed
+  // "active" forever (or, worse, a bottom-edge special case would force
+  // only the very last one, skipping the ones in between). Sizing the
+  // spacer to the pane's own height guarantees every section, including
+  // the last, can reach the line under its own scroll position.
+  var spacer = document.getElementById('toc-spacer');
+
+  function sizeSpacer() {
+    spacer.style.height = content.clientHeight * .75 + 'px';
+  }
+
+  // Picks the section whose top has crossed a fixed "reading line" near
+  // the top of the content pane, matching how docs sidebars usually spy.
+  function onScroll() {
+    var contentRect = content.getBoundingClientRect();
+    var readingLine = contentRect.top + contentRect.height * 0.25;
+
+    var current = 0;
+    sections.forEach(function (section, i) {
+      var top = section.getBoundingClientRect().top;
+      if (top - readingLine <= 0) current = i;
+    });
+
+    setActive(current, true);
+  }
+
+  function scrollToSection(target) {
+    var offset = target.getBoundingClientRect().top - content.getBoundingClientRect().top + content.scrollTop;
+    content.scrollTo({ top: offset - 8, behavior: 'smooth' });
+  }
+
+  links.forEach(function (link, i) {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      scrollToSection(sections[i]);
+    });
+  });
+
+  content.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', function () {
+    sizeSpacer();
+    placeIndicator(links[activeIndex === -1 ? 0 : activeIndex], false);
+  });
+
+  sizeSpacer();
+  setActive(0, false);
+})();
+</script>
+
+</body>
+</html>
