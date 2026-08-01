@@ -37,7 +37,7 @@
     pointer-events: none;
   }
 
-  #snake-path{
+  .snake-path{
     fill: none;
     stroke: var(--brand-green);
     stroke-width: 2;
@@ -90,9 +90,7 @@
     <p class="text-center text-secondary small mb-4">clique ou navegue com Tab pelos campos</p>
 
     <div class="snake-wrap" id="snake-wrap">
-      <svg class="snake-svg" id="snake-svg">
-        <path id="snake-path"></path>
-      </svg>
+      <svg class="snake-svg" id="snake-svg"></svg>
 
       <form class="snake-form" novalidate>
         <div>
@@ -117,17 +115,16 @@
 (function () {
   var wrap = document.getElementById('snake-wrap');
   var svg = document.getElementById('snake-svg');
-  var path = document.getElementById('snake-path');
-  var fields = Array.prototype.slice.call(document.querySelectorAll('.snake-field'));
+  var fields = Array.prototype.slice.call(document.querySelectorAll('input.snake-field'));
 
   var CORNER_RADIUS = 10;
 
-  // segments[i] = { offsetBefore, length } for each field's rounded-rect
-  // subpath, measured in the path's own combined length units.
-  var segments = [];
-  var totalLength = 0;
+  // One independent <path> per field, so highlighting one input never
+  // animates through or over another field's outline.
+  var pathEls = [];
+  var lengths = [];
+  var anims = [];
   var activeIndex = null;
-  var current = null;
 
   function roundedRectD(x, y, w, h, r) {
     return [
@@ -144,70 +141,63 @@
     ].join(' ');
   }
 
-  // Measures a single subpath's length in isolation so each field's
-  // segment/offset can be computed without guessing pixel geometry by hand.
-  function measureLength(d) {
-    var probe = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    probe.setAttribute('d', d);
-    svg.appendChild(probe);
-    var length = probe.getTotalLength();
-    svg.removeChild(probe);
-    return length;
-  }
-
-  // Rebuilds the SVG path from the fields' current on-screen geometry, so
+  // Rebuilds each field's own path from its current on-screen geometry, so
   // the highlight stays pixel-perfect across reflows/resizes/content changes.
   function buildPath() {
     var wrapRect = wrap.getBoundingClientRect();
     svg.setAttribute('viewBox', '0 0 ' + wrapRect.width + ' ' + wrapRect.height);
 
-    var subpaths = [];
-    segments = [];
-    totalLength = 0;
-
-    fields.forEach(function (field) {
+    fields.forEach(function (field, i) {
       var r = field.getBoundingClientRect();
       var d = roundedRectD(r.left - wrapRect.left, r.top - wrapRect.top, r.width, r.height, CORNER_RADIUS);
-      var length = measureLength(d);
-      segments.push({ offsetBefore: totalLength, length: length });
-      totalLength += length;
-      subpaths.push(d);
-    });
 
-    path.setAttribute('d', subpaths.join(' '));
-    path.style.strokeDasharray = '0 ' + totalLength;
-    path.style.strokeDashoffset = 0;
+      var pathEl = pathEls[i];
+      if (!pathEl) {
+        pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathEl.setAttribute('class', 'snake-path');
+        svg.appendChild(pathEl);
+        pathEls[i] = pathEl;
+      }
+      pathEl.setAttribute('d', d);
+
+      var length = pathEl.getTotalLength();
+      lengths[i] = length;
+      pathEl.style.strokeDashoffset = 0;
+      pathEl.style.strokeDasharray = (i === activeIndex ? length + ' 0' : '0 ' + length);
+    });
   }
 
   function highlight(index) {
-    var seg = segments[index];
-    if (!seg) return;
-    if (current) current.pause();
+    if (activeIndex !== null && activeIndex !== index) {
+      // Previous field drops out instantly, never mid-animation, so it
+      // can't visually bleed into the newly focused field's outline.
+      if (anims[activeIndex]) anims[activeIndex].pause();
+      pathEls[activeIndex].style.strokeDasharray = '0 ' + lengths[activeIndex];
+    }
 
-    current = anime({
-      targets: path,
-      strokeDashoffset: {
-        value: -seg.offsetBefore,
-        duration: 700,
-        easing: 'easeOutQuart'
-      },
-      strokeDasharray: {
-        value: seg.length + ' ' + (totalLength - seg.length),
-        duration: 700,
-        easing: 'easeOutQuart'
-      }
+    activeIndex = index;
+    if (anims[index]) anims[index].pause();
+    pathEls[index].style.strokeDasharray = '0 ' + lengths[index];
+
+    anims[index] = anime({
+      targets: pathEls[index],
+      strokeDasharray: lengths[index] + ' 0',
+      duration: 700,
+      easing: 'easeOutQuart'
     });
   }
 
   function hide() {
-    if (current) current.pause();
-    current = anime({
-      targets: path,
-      strokeDasharray: {
-        value: '0 ' + totalLength,
-        duration: 400,
-        easing: 'easeInQuart'
-      }
+    if (activeIndex === null) return;
+    var index = activeIndex;
+    activeIndex = null;
+
+    if (anims[index]) anims[index].pause();
+    anims[index] = anime({
+      targets: pathEls[index],
+      strokeDasharray: '0 ' + lengths[index],
+      duration: 400,
+      easing: 'easeInQuart'
     });
   }
 
@@ -215,14 +205,12 @@
 
   fields.forEach(function (field, i) {
     field.addEventListener('focus', function () {
-      activeIndex = i;
       highlight(i);
     });
   });
 
   wrap.addEventListener('focusout', function (e) {
     if (fields.indexOf(e.relatedTarget) === -1) {
-      activeIndex = null;
       hide();
     }
   });
@@ -230,14 +218,7 @@
   var resizeTimer;
   window.addEventListener('resize', function () {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function () {
-      buildPath();
-      if (activeIndex !== null) {
-        var seg = segments[activeIndex];
-        path.style.strokeDasharray = seg.length + ' ' + (totalLength - seg.length);
-        path.style.strokeDashoffset = -seg.offsetBefore;
-      }
-    }, 150);
+    resizeTimer = setTimeout(buildPath, 150);
   });
 })();
 </script>
